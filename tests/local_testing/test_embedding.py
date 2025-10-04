@@ -1285,3 +1285,130 @@ def test_jina_ai_img_embeddings(input_data, expected_payload_input):
         #    Assert that the 'input' field in the payload matches our expectation.
         assert "input" in sent_data
         assert sent_data["input"] == expected_payload_input
+
+
+
+# GitHub Copilot Embedding Tests
+def test_github_copilot_embedding_mock():
+    """Test GitHub Copilot embedding with mocked response."""
+    try:
+        import litellm
+        from litellm.types.utils import EmbeddingResponse, Usage
+        from unittest.mock import patch
+        
+        # Mock the embedding call since we need credentials for real calls
+        with patch("litellm.llms.custom_httpx.llm_http_handler.embedding") as mock_embedding:
+            # Mock response
+            mock_response = EmbeddingResponse()
+            mock_response.model = "text-embedding-3-small"
+            mock_response.data = [
+                {
+                    "object": "embedding",
+                    "index": 0,
+                    "embedding": [0.1] * 1536
+                }
+            ]
+            mock_response.usage = Usage(prompt_tokens=5, total_tokens=5)
+            mock_response.object = "list"
+            
+            mock_embedding.return_value = mock_response
+            
+            response = litellm.embedding(
+                model="github_copilot/text-embedding-3-small",
+                input="Hello, world!"
+            )
+            
+            # Verify response structure
+            assert response.model == "text-embedding-3-small"
+            assert len(response.data) == 1
+            assert len(response.data[0]["embedding"]) == 1536
+            assert response.usage.prompt_tokens == 5
+            assert response.object == "list"
+            
+            # Verify the mock was called correctly
+            mock_embedding.assert_called_once()
+            call_args = mock_embedding.call_args
+            assert call_args[1]["model"] == "text-embedding-3-small"
+            assert call_args[1]["custom_llm_provider"] == "github_copilot"
+            
+            print("✅ GitHub Copilot embedding mock test passed")
+    except Exception as e:
+        print(f"❌ GitHub Copilot embedding mock test failed: {e}")
+        raise
+
+
+@pytest.mark.asyncio
+async def test_github_copilot_embedding_async_mock():
+    """Test GitHub Copilot async embedding with mocked response."""
+    try:
+        import litellm
+        from litellm.types.utils import EmbeddingResponse, Usage
+        from unittest.mock import patch
+        
+        with patch("litellm.llms.custom_httpx.llm_http_handler.embedding") as mock_embedding:
+            # Mock response for multiple inputs
+            mock_response = EmbeddingResponse()
+            mock_response.model = "text-embedding-3-small"
+            mock_response.data = [
+                {
+                    "object": "embedding",
+                    "index": 0,
+                    "embedding": [0.1] * 1536
+                },
+                {
+                    "object": "embedding",
+                    "index": 1,
+                    "embedding": [0.2] * 1536
+                }
+            ]
+            mock_response.usage = Usage(prompt_tokens=10, total_tokens=10)
+            mock_response.object = "list"
+            
+            mock_embedding.return_value = mock_response
+            
+            response = await litellm.aembedding(
+                model="github_copilot/text-embedding-3-small",
+                input=["Hello", "World"]
+            )
+            
+            # Verify response
+            assert response.model == "text-embedding-3-small"
+            assert len(response.data) == 2
+            assert len(response.data[0]["embedding"]) == 1536
+            assert len(response.data[1]["embedding"]) == 1536
+            assert response.usage.prompt_tokens == 10
+            
+            print("✅ GitHub Copilot async embedding mock test passed")
+    except Exception as e:
+        print(f"❌ GitHub Copilot async embedding mock test failed: {e}")
+        raise
+
+
+def test_github_copilot_embedding_provider_config():
+    """Test GitHub Copilot embedding provider configuration."""
+    try:
+        from litellm.utils import ProviderConfigManager
+        from litellm.types.utils import LlmProviders
+        from litellm.llms.github_copilot.embedding.transformation import GithubCopilotEmbeddingConfig
+        
+        # Test provider config manager returns correct config
+        config = ProviderConfigManager.get_provider_embedding_config(
+            model="text-embedding-3-small",
+            provider=LlmProviders.GITHUB_COPILOT
+        )
+        
+        assert config is not None
+        assert isinstance(config, GithubCopilotEmbeddingConfig)
+        
+        # Test supported parameters
+        supported_params = config.get_supported_openai_params("text-embedding-3-small")
+        expected_params = ["encoding_format", "dimensions", "user"]
+        
+        for param in expected_params:
+            assert param in supported_params
+        
+        print("✅ GitHub Copilot embedding provider config test passed")
+    except Exception as e:
+        print(f"❌ GitHub Copilot embedding provider config test failed: {e}")
+        raise
+

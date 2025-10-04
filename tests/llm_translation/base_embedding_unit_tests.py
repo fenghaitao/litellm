@@ -93,3 +93,125 @@ class BaseLLMEmbeddingTest(ABC):
             pytest.skip("Model does not support embedding image input")
 
         embedding(**base_embedding_call_args, input=[base64_image])
+
+
+class TestGithubCopilotEmbedding(BaseLLMEmbeddingTest):
+    """Test GitHub Copilot embedding functionality."""
+    
+    def get_base_embedding_call_args(self) -> dict:
+        return {
+            "model": "github_copilot/text-embedding-3-small",
+        }
+    
+    def get_custom_llm_provider(self) -> litellm.LlmProviders:
+        return litellm.LlmProviders.GITHUB_COPILOT
+    
+    @pytest.mark.asyncio
+    async def test_github_copilot_embedding_with_dimensions(self):
+        """Test GitHub Copilot embedding with custom dimensions."""
+        litellm.set_verbose = True
+        
+        # Mock the embedding call since we need credentials for real calls
+        with patch('litellm.llms.custom_httpx.llm_http_handler.embedding') as mock_embedding:
+            from litellm.types.utils import EmbeddingResponse, Usage
+            
+            # Mock response with custom dimensions
+            mock_response = EmbeddingResponse()
+            mock_response.model = "text-embedding-3-small"
+            mock_response.data = [
+                {
+                    "object": "embedding",
+                    "index": 0,
+                    "embedding": [0.1] * 512  # Custom 512 dimensions
+                }
+            ]
+            mock_response.usage = Usage(prompt_tokens=4, total_tokens=4)
+            mock_response.object = "list"
+            
+            mock_embedding.return_value = mock_response
+            
+            response = await litellm.aembedding(
+                model="github_copilot/text-embedding-3-small",
+                input="Test with custom dimensions",
+                dimensions=512
+            )
+            
+            assert response.model == "text-embedding-3-small"
+            assert len(response.data) == 1
+            assert len(response.data[0]["embedding"]) == 512
+            assert response.usage.prompt_tokens == 4
+    
+    @pytest.mark.asyncio  
+    async def test_github_copilot_embedding_with_user_param(self):
+        """Test GitHub Copilot embedding with user parameter."""
+        litellm.set_verbose = True
+        
+        with patch('litellm.llms.custom_httpx.llm_http_handler.embedding') as mock_embedding:
+            from litellm.types.utils import EmbeddingResponse, Usage
+            
+            mock_response = EmbeddingResponse()
+            mock_response.model = "text-embedding-3-small"
+            mock_response.data = [
+                {
+                    "object": "embedding",
+                    "index": 0,
+                    "embedding": [0.1] * 1536
+                }
+            ]
+            mock_response.usage = Usage(prompt_tokens=3, total_tokens=3)
+            
+            mock_embedding.return_value = mock_response
+            
+            response = await litellm.aembedding(
+                model="github_copilot/text-embedding-3-small",
+                input="Test",
+                user="test-user-123"
+            )
+            
+            assert response.model == "text-embedding-3-small"
+            
+            # Verify user parameter was passed
+            call_args = mock_embedding.call_args
+            assert "user" in call_args[1]["optional_params"]
+            assert call_args[1]["optional_params"]["user"] == "test-user-123"
+    
+    def test_github_copilot_embedding_optional_params(self):
+        """Test that GitHub Copilot supports the correct optional parameters."""
+        from litellm.utils import get_optional_params_embeddings
+        
+        optional_params = get_optional_params_embeddings(
+            model="github_copilot/text-embedding-3-small",
+            custom_llm_provider="github_copilot",
+            dimensions=512,
+            encoding_format="float",
+            user="test-user"
+        )
+        
+        # GitHub Copilot should support these OpenAI-compatible parameters
+        assert "dimensions" in optional_params
+        assert "encoding_format" in optional_params  
+        assert "user" in optional_params
+        assert optional_params["dimensions"] == 512
+        assert optional_params["encoding_format"] == "float"
+        assert optional_params["user"] == "test-user"
+    
+    def test_github_copilot_embedding_provider_config(self):
+        """Test that the provider config is correctly set up."""
+        from litellm.utils import ProviderConfigManager
+        from litellm.types.utils import LlmProviders
+        from litellm.llms.github_copilot.embedding.transformation import GithubCopilotEmbeddingConfig
+        
+        config = ProviderConfigManager.get_provider_embedding_config(
+            model="text-embedding-3-small",
+            provider=LlmProviders.GITHUB_COPILOT
+        )
+        
+        assert config is not None
+        assert isinstance(config, GithubCopilotEmbeddingConfig)
+        
+        # Test supported parameters
+        supported_params = config.get_supported_openai_params("text-embedding-3-small")
+        expected_params = ["encoding_format", "dimensions", "user"]
+        
+        for param in expected_params:
+            assert param in supported_params
