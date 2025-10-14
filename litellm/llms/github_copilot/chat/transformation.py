@@ -71,6 +71,10 @@ class GithubCopilotConfig(OpenAIConfig):
             headers, model, messages, optional_params, litellm_params, api_key, api_base
         )
 
+        # Add GitHub Copilot specific headers so clients don't need to handle this
+        validated_headers["Editor-Version"] = "vscode/1.85.0"
+        validated_headers["Copilot-Integration-Id"] = "vscode-chat"
+
         # Add X-Initiator header based on message roles
         initiator = self._determine_initiator(messages)
         validated_headers["X-Initiator"] = initiator

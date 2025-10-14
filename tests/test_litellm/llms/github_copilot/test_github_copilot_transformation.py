@@ -509,3 +509,68 @@ def test_copilot_vision_request_header_with_type_image_url():
     
     assert headers["Copilot-Vision-Request"] == "true"
     assert headers["X-Initiator"] == "user"
+
+
+def test_github_copilot_extra_headers():
+    """Test that GitHub Copilot specific headers are automatically added"""
+    config = GithubCopilotConfig()
+    
+    # Mock the authenticator
+    config.authenticator = MagicMock()
+    config.authenticator.get_api_key.return_value = "gh.test-key-123"
+    config.authenticator.get_api_base.return_value = None
+
+    messages = [
+        {"role": "user", "content": "Hello!"},
+    ]
+    
+    headers = config.validate_environment(
+        headers={},
+        model="github_copilot/gpt-4",
+        messages=messages,
+        optional_params={},
+        litellm_params={},
+        api_key=None,
+        api_base=None,
+    )
+    
+    # Verify that the extra headers are automatically added
+    assert headers["Editor-Version"] == "vscode/1.85.0"
+    assert headers["Copilot-Integration-Id"] == "vscode-chat"
+    assert headers["X-Initiator"] == "user"
+
+
+def test_github_copilot_extra_headers_merge_with_custom():
+    """Test that custom headers are merged with GitHub Copilot specific headers"""
+    config = GithubCopilotConfig()
+    
+    # Mock the authenticator
+    config.authenticator = MagicMock()
+    config.authenticator.get_api_key.return_value = "gh.test-key-123"
+    config.authenticator.get_api_base.return_value = None
+
+    messages = [
+        {"role": "user", "content": "Hello!"},
+    ]
+    
+    custom_headers = {
+        "Custom-Header": "custom-value",
+        "Editor-Version": "should-be-overridden"  # Should be overridden by our defaults
+    }
+    
+    headers = config.validate_environment(
+        headers=custom_headers,
+        model="github_copilot/gpt-4",
+        messages=messages,
+        optional_params={},
+        litellm_params={},
+        api_key=None,
+        api_base=None,
+    )
+    
+    # Custom header should be preserved
+    assert headers["Custom-Header"] == "custom-value"
+    # But our defaults should override any conflicting headers
+    assert headers["Editor-Version"] == "vscode/1.85.0"
+    assert headers["Copilot-Integration-Id"] == "vscode-chat"
+    assert headers["X-Initiator"] == "user"
