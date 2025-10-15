@@ -2050,6 +2050,15 @@ def completion(  # type: ignore # noqa: PLR0915
 
             headers = headers or litellm.headers
 
+            # Add required headers for GitHub Copilot
+            if custom_llm_provider == "github_copilot":
+                if headers is None:
+                    headers = {}
+                headers.update({
+                    "Editor-Version": "vscode/1.85.0",
+                    "Copilot-Integration-Id": "vscode-chat"
+                })
+
             if extra_headers is not None:
                 optional_params["extra_headers"] = extra_headers
 
