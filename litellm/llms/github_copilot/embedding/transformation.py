@@ -138,11 +138,18 @@ class GithubCopilotEmbeddingConfig(BaseEmbeddingConfig):
         Returns:
             List of supported parameter names
         """
-        return [
+        # Base parameters supported by all models
+        base_params = [
             "encoding_format",
-            "dimensions", 
             "user",
         ]
+        
+        # The dimensions parameter is only supported by newer embedding models
+        # text-embedding-ada-002 does not support dimensions
+        if model and "ada-002" not in model:
+            base_params.append("dimensions")
+        
+        return base_params
     
     def map_openai_params(
         self,
@@ -205,8 +212,9 @@ class GithubCopilotEmbeddingConfig(BaseEmbeddingConfig):
             "model": model,
         }
         
-        # Add supported optional parameters
-        for param in ["encoding_format", "dimensions", "user"]:
+        # Add supported optional parameters based on model capabilities
+        supported_params = self.get_supported_openai_params(model)
+        for param in supported_params:
             if param in optional_params:
                 request_payload[param] = optional_params[param]
         

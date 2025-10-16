@@ -357,7 +357,7 @@ def get_llm_provider(  # noqa: PLR0915
         elif model in litellm.watsonx_models:
             custom_llm_provider = "watsonx"
         # openai embeddings
-        elif model in litellm.open_ai_embedding_models:
+        elif model in litellm.open_ai_embedding_models and custom_llm_provider is None:
             custom_llm_provider = "openai"
         elif model in litellm.empower_models:
             custom_llm_provider = "empower"

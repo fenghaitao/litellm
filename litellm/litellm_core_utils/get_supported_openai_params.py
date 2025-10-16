@@ -259,6 +259,13 @@ def get_supported_openai_params(  # noqa: PLR0915
             )
         else:
             return litellm.TritonConfig().get_supported_openai_params(model=model)
+    elif custom_llm_provider == "github_copilot":
+        if request_type == "embeddings":
+            return litellm.GithubCopilotEmbeddingConfig().get_supported_openai_params(
+                model=model
+            )
+        else:
+            return litellm.GithubCopilotConfig().get_supported_openai_params(model=model)
     elif custom_llm_provider == "deepgram":
         if request_type == "transcription":
             return (
