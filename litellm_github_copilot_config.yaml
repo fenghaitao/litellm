@@ -1,0 +1,214 @@
+# LiteLLM Configuration for GitHub Copilot Models
+# Updated with actual available models from GitHub Copilot
+
+model_list:
+  # Latest GPT Models
+  - model_name: "gpt-4.1"
+    litellm_params:
+      model: "github_copilot/gpt-4.1"
+      
+  - model_name: "gpt-4.1-2025-04-14"
+    litellm_params:
+      model: "github_copilot/gpt-4.1-2025-04-14"
+      
+  - model_name: "gpt-41-copilot"
+    litellm_params:
+      model: "github_copilot/gpt-41-copilot"
+
+  # GPT-5 Models
+  - model_name: "gpt-5"
+    litellm_params:
+      model: "github_copilot/gpt-5"
+      
+  - model_name: "gpt-5-mini"
+    litellm_params:
+      model: "github_copilot/gpt-5-mini"
+      
+  - model_name: "gpt-5-codex"
+    litellm_params:
+      model: "github_copilot/gpt-5-codex"
+
+  # GPT-4 Models
+  - model_name: "gpt-4"
+    litellm_params:
+      model: "github_copilot/gpt-4"
+      
+  - model_name: "gpt-4-0613"
+    litellm_params:
+      model: "github_copilot/gpt-4-0613"
+      
+  - model_name: "gpt-4-0125-preview"
+    litellm_params:
+      model: "github_copilot/gpt-4-0125-preview"
+      
+  - model_name: "gpt-4-o-preview"
+    litellm_params:
+      model: "github_copilot/gpt-4-o-preview"
+
+  # GPT-4o Models
+  - model_name: "gpt-4o"
+    litellm_params:
+      model: "github_copilot/gpt-4o"
+      
+  - model_name: "gpt-4o-mini"
+    litellm_params:
+      model: "github_copilot/gpt-4o-mini"
+      
+  - model_name: "gpt-4o-mini-2024-07-18"
+    litellm_params:
+      model: "github_copilot/gpt-4o-mini-2024-07-18"
+      
+  - model_name: "gpt-4o-2024-05-13"
+    litellm_params:
+      model: "github_copilot/gpt-4o-2024-05-13"
+      
+  - model_name: "gpt-4o-2024-08-06"
+    litellm_params:
+      model: "github_copilot/gpt-4o-2024-08-06"
+      
+  - model_name: "gpt-4o-2024-11-20"
+    litellm_params:
+      model: "github_copilot/gpt-4o-2024-11-20"
+
+  # OpenAI o3/o4 Models (Latest)
+  - model_name: "o3-mini"
+    litellm_params:
+      model: "github_copilot/o3-mini"
+      
+  - model_name: "o3-mini-2025-01-31"
+    litellm_params:
+      model: "github_copilot/o3-mini-2025-01-31"
+      
+  - model_name: "o3-mini-paygo"
+    litellm_params:
+      model: "github_copilot/o3-mini-paygo"
+      
+  - model_name: "o4-mini"
+    litellm_params:
+      model: "github_copilot/o4-mini"
+      
+  - model_name: "o4-mini-2025-04-16"
+    litellm_params:
+      model: "github_copilot/o4-mini-2025-04-16"
+
+  # GPT-3.5 Models
+  - model_name: "gpt-3.5-turbo"
+    litellm_params:
+      model: "github_copilot/gpt-3.5-turbo"
+      
+  - model_name: "gpt-3.5-turbo-0613"
+    litellm_params:
+      model: "github_copilot/gpt-3.5-turbo-0613"
+
+  # Anthropic Claude Models
+  - model_name: "claude-3.5-sonnet"
+    litellm_params:
+      model: "github_copilot/claude-3.5-sonnet"
+      
+  - model_name: "claude-3.7-sonnet"
+    litellm_params:
+      model: "github_copilot/claude-3.7-sonnet"
+      
+  - model_name: "claude-3.7-sonnet-thought"
+    litellm_params:
+      model: "github_copilot/claude-3.7-sonnet-thought"
+      
+  - model_name: "claude-sonnet-4"
+    litellm_params:
+      model: "github_copilot/claude-sonnet-4"
+      
+  - model_name: "claude-sonnet-4.5"
+    litellm_params:
+      model: "github_copilot/claude-sonnet-4.5"
+      
+  - model_name: "claude-haiku-4.5"
+    litellm_params:
+      model: "github_copilot/claude-haiku-4.5"
+
+  # Google Gemini Models
+  - model_name: "gemini-2.0-flash-001"
+    litellm_params:
+      model: "github_copilot/gemini-2.0-flash-001"
+      
+  - model_name: "gemini-2.5-pro"
+    litellm_params:
+      model: "github_copilot/gemini-2.5-pro"
+
+  # Grok Models
+  - model_name: "grok-code-fast-1"
+    litellm_params:
+      model: "github_copilot/grok-code-fast-1"
+
+  # Embedding Models
+  - model_name: "text-embedding-ada-002"
+    litellm_params:
+      model: "github_copilot/text-embedding-ada-002"
+      
+  - model_name: "text-embedding-3-small"
+    litellm_params:
+      model: "github_copilot/text-embedding-3-small"
+      
+  - model_name: "text-embedding-3-small-inference"
+    litellm_params:
+      model: "github_copilot/text-embedding-3-small-inference"
+
+# General settings
+general_settings:
+  # Set to true for detailed logging
+  debug: false
+  
+  # Master key for accessing the proxy (uses environment variable for security)
+  master_key: ${LITELLM_MASTER_KEY}
+  
+  # Alternative: use environment variable with default fallback
+  # master_key: ${LITELLM_MASTER_KEY:sk-default-key-here}
+  
+  # Database for logging (optional)
+  # database_url: "postgresql://user:password@localhost/litellm"
+  
+  # Callbacks for logging/monitoring (optional)
+  # success_callback: ["langfuse"]
+  # failure_callback: ["langfuse"]
+
+# Router settings for load balancing (optional)
+router_settings:
+  # Timeout settings
+  timeout: 60
+  
+  # Retry settings
+  num_retries: 3
+  
+  # Fallback models for high availability (commented out for now)
+  # fallbacks:
+  #   - {"gpt-4.1": ["gpt-4", "gpt-4o"]}
+  #   - {"gpt-5": ["gpt-4.1", "gpt-4"]}
+  #   - {"o3-mini": ["o4-mini", "gpt-4o-mini"]}
+  #   - {"claude-sonnet-4.5": ["claude-3.7-sonnet", "claude-3.5-sonnet"]}
+
+# Proxy settings
+litellm_settings:
+  # Drop specific parameters if needed
+  drop_params: true
+  
+  # Set max tokens for modern models with large context windows
+  max_tokens: 128000  # 128k tokens - adjust per model if needed
+  
+  # Context window sizes by model family:
+  # - GPT-4.1, GPT-5: 128k tokens
+  # - GPT-4o models: 128k tokens  
+  # - o3-mini, o4-mini: 128k tokens
+  # - Claude 3.5/4.5 Sonnet: 200k tokens
+  # - Claude Haiku 4.5: 200k tokens
+  # - Gemini 2.0/2.5: 1M+ tokens
+  # - Some models may support up to 256k or more
+  
+  # Temperature settings
+  temperature: 0.7
+  
+  # Model aliases for easier access
+  model_alias_map:
+    "latest-gpt": "gpt-4.1"
+    "latest-claude": "claude-sonnet-4.5"
+    "latest-gemini": "gemini-2.5-pro"
+    "fastest": "gpt-4o-mini"
+    "reasoning": "o3-mini"
