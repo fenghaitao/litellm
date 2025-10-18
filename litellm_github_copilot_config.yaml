@@ -154,21 +154,20 @@ model_list:
 
 # General settings
 general_settings:
-  # Set to true for detailed logging
-  debug: false
-  
   # Master key for accessing the proxy (uses environment variable for security)
   master_key: ${LITELLM_MASTER_KEY}
   
-  # Alternative: use environment variable with default fallback
-  # master_key: ${LITELLM_MASTER_KEY:sk-default-key-here}
+  # Database URL - use SQLite for simple setup or PostgreSQL for production
+  # SQLite example (creates a local database file):
+  # database_url: "sqlite:///./litellm.db"
+  # PostgreSQL example:
+  # database_url: "postgresql://user:password@localhost:5432/litellm"
   
-  # Database for logging (optional)
-  # database_url: "postgresql://user:password@localhost/litellm"
+  # Allow requests even when database is unavailable (limited functionality)
+  allow_requests_on_db_unavailable: true
   
-  # Callbacks for logging/monitoring (optional)
-  # success_callback: ["langfuse"]
-  # failure_callback: ["langfuse"]
+  # Simple debug setting like working config
+  # debug: true
 
 # Router settings for load balancing (optional)
 router_settings:

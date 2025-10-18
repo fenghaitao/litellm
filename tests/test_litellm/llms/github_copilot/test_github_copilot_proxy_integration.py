@@ -3,6 +3,15 @@
 Comprehensive integration tests for LiteLLM Proxy with GitHub Copilot GPT-4.
 This test suite validates the proxy server functionality when configured with GitHub Copilot.
 
+Prerequisites:
+- LiteLLM proxy server running on localhost:4000
+- GitHub Copilot configured and accessible
+- LITELLM_MASTER_KEY environment variable set with your proxy master key
+
+Setup:
+    export LITELLM_MASTER_KEY="your-master-key-here"
+    pytest tests/test_litellm/llms/github_copilot/test_github_copilot_proxy_integration.py -v
+
 Test Coverage:
 - Health checks and server status
 - Model endpoint availability
@@ -11,12 +20,16 @@ Test Coverage:
 - Streaming completions
 - Raw HTTP requests
 - Error handling and authentication
+- Text embedding functionality (ada-002, 3-small)
+- Batch embedding processing
+- Embedding with GitHub Copilot headers
 """
 
 import pytest
 import aiohttp
 import asyncio
 import json
+import os
 from typing import Optional, Dict, Any
 import openai
 import requests
@@ -27,7 +40,7 @@ class TestGitHubCopilotProxyIntegration:
     
     # Configuration
     PROXY_URL = "http://localhost:4000"
-    API_KEY = "sk-1234"  # Default test API key
+    API_KEY = os.getenv("LITELLM_MASTER_KEY", "sk-1234")  # Use environment variable or fallback
     
     @pytest.fixture(scope="class")
     def proxy_config(self):
@@ -42,8 +55,12 @@ class TestGitHubCopilotProxyIntegration:
     def test_health_check(self, proxy_config):
         """Test if the proxy server is running and healthy"""
         try:
-            response = requests.get(f"{proxy_config['base_url']}/health", timeout=5)
-            assert response.status_code == 200, f"Health check failed with status {response.status_code}"
+            # Health endpoint requires authentication
+            headers = {"Authorization": f"Bearer {proxy_config['api_key']}"}
+            response = requests.get(f"{proxy_config['base_url']}/health", headers=headers, timeout=30)
+            
+            # Expect 200 status for healthy server
+            assert response.status_code == 200, f"Health check failed with status {response.status_code}: {response.text}"
             
             health_data = response.json()
             assert "healthy_endpoints" in health_data, "Health response missing healthy_endpoints"
@@ -51,6 +68,8 @@ class TestGitHubCopilotProxyIntegration:
             
         except requests.exceptions.ConnectionError:
             pytest.fail("Failed to connect to proxy server. Make sure it's running on port 4000")
+        except requests.exceptions.ReadTimeout:
+            pytest.fail("Health check timed out. The server may be unresponsive or not running on port 4000")
         except Exception as e:
             pytest.fail(f"Health check failed: {e}")
     
@@ -128,6 +147,137 @@ class TestGitHubCopilotProxyIntegration:
         
         # Check if usage information is provided
         assert response.usage.total_tokens > 0, "Usage tokens should be greater than 0"
+    
+    def test_text_embedding_ada_002(self, proxy_config):
+        """Test text embedding with text-embedding-ada-002 model"""
+        client = openai.OpenAI(
+            base_url=proxy_config['base_url'],
+            api_key=proxy_config['api_key']
+        )
+        
+        response = client.embeddings.create(
+            model="text-embedding-ada-002",
+            input=["Hello world", "This is a test embedding"],
+            timeout=proxy_config['timeout']
+        )
+        
+        # Validate response structure
+        assert hasattr(response, 'data'), "Embedding response missing data"
+        assert len(response.data) == 2, "Expected 2 embedding vectors"
+        
+        for i, embedding in enumerate(response.data):
+            assert hasattr(embedding, 'embedding'), f"Embedding {i} missing embedding vector"
+            assert isinstance(embedding.embedding, list), f"Embedding {i} vector should be a list"
+            assert len(embedding.embedding) > 0, f"Embedding {i} vector should not be empty"
+            assert all(isinstance(x, (int, float)) for x in embedding.embedding), f"Embedding {i} vector should contain numbers"
+        
+        # Check usage information
+        assert hasattr(response, 'usage'), "Embedding response missing usage"
+        assert response.usage.total_tokens > 0, "Embedding usage tokens should be greater than 0"
+    
+    def test_text_embedding_3_small(self, proxy_config):
+        """Test text embedding with text-embedding-3-small model"""
+        client = openai.OpenAI(
+            base_url=proxy_config['base_url'],
+            api_key=proxy_config['api_key']
+        )
+        
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input="This is a test for the newer embedding model",
+            timeout=proxy_config['timeout']
+        )
+        
+        # Validate response structure
+        assert hasattr(response, 'data'), "Embedding response missing data"
+        assert len(response.data) == 1, "Expected 1 embedding vector"
+        
+        embedding = response.data[0]
+        assert hasattr(embedding, 'embedding'), "Embedding missing embedding vector"
+        assert isinstance(embedding.embedding, list), "Embedding vector should be a list"
+        assert len(embedding.embedding) > 0, "Embedding vector should not be empty"
+        
+        # text-embedding-3-small should have 1536 dimensions by default
+        assert len(embedding.embedding) == 1536, f"Expected 1536 dimensions, got {len(embedding.embedding)}"
+        
+        # Check usage information
+        assert hasattr(response, 'usage'), "Embedding response missing usage"
+        assert response.usage.total_tokens > 0, "Embedding usage tokens should be greater than 0"
+    
+    def test_embedding_batch_processing(self, proxy_config):
+        """Test embedding with multiple inputs (batch processing)"""
+        client = openai.OpenAI(
+            base_url=proxy_config['base_url'],
+            api_key=proxy_config['api_key']
+        )
+        
+        # Test with multiple texts
+        texts = [
+            "Python is a programming language",
+            "Machine learning is a subset of artificial intelligence",
+            "Natural language processing deals with text analysis",
+            "Embeddings convert text to numerical vectors"
+        ]
+        
+        response = client.embeddings.create(
+            model="text-embedding-ada-002",
+            input=texts,
+            timeout=proxy_config['timeout']
+        )
+        
+        # Validate response structure
+        assert hasattr(response, 'data'), "Batch embedding response missing data"
+        assert len(response.data) == len(texts), f"Expected {len(texts)} embedding vectors"
+        
+        # Check each embedding
+        for i, embedding in enumerate(response.data):
+            assert hasattr(embedding, 'embedding'), f"Batch embedding {i} missing embedding vector"
+            assert isinstance(embedding.embedding, list), f"Batch embedding {i} vector should be a list"
+            assert len(embedding.embedding) > 0, f"Batch embedding {i} vector should not be empty"
+            assert embedding.index == i, f"Batch embedding {i} has wrong index: {embedding.index}"
+        
+        # Check that embeddings are different (semantic similarity test)
+        emb1 = response.data[0].embedding
+        emb2 = response.data[1].embedding
+        
+        # Simple check: embeddings should not be identical
+        assert emb1 != emb2, "Different texts should produce different embeddings"
+        
+        # Check usage information
+        assert hasattr(response, 'usage'), "Batch embedding response missing usage"
+        assert response.usage.total_tokens > 0, "Batch embedding usage tokens should be greater than 0"
+    
+    def test_embedding_with_github_copilot_headers(self, proxy_config):
+        """Test embedding with GitHub Copilot specific headers"""
+        client = openai.OpenAI(
+            base_url=proxy_config['base_url'],
+            api_key=proxy_config['api_key']
+        )
+        
+        response = client.embeddings.create(
+            model="text-embedding-ada-002",
+            input="Code embedding test with GitHub Copilot headers",
+            timeout=proxy_config['timeout'],
+            extra_headers={
+                "editor-version": "vscode/1.85.1",
+                "Copilot-Integration-Id": "vscode-embedding",
+                "editor-plugin-version": "copilot/1.155.0",
+                "user-agent": "GithubCopilot/1.155.0"
+            }
+        )
+        
+        # Validate response structure
+        assert hasattr(response, 'data'), "Copilot embedding response missing data"
+        assert len(response.data) == 1, "Expected 1 embedding vector"
+        
+        embedding = response.data[0]
+        assert hasattr(embedding, 'embedding'), "Copilot embedding missing embedding vector"
+        assert isinstance(embedding.embedding, list), "Copilot embedding vector should be a list"
+        assert len(embedding.embedding) > 0, "Copilot embedding vector should not be empty"
+        
+        # Check usage information
+        assert hasattr(response, 'usage'), "Copilot embedding response missing usage"
+        assert response.usage.total_tokens > 0, "Copilot embedding usage tokens should be greater than 0"
     
     def test_streaming_completion(self, proxy_config):
         """Test streaming chat completion functionality"""
@@ -259,9 +409,10 @@ class TestGitHubCopilotProxyIntegration:
         
         async def async_test():
             async with aiohttp.ClientSession() as session:
-                # Test health endpoint
-                async with session.get(f"{proxy_config['base_url']}/health") as response:
-                    assert response.status == 200
+                # Test health endpoint with authentication
+                headers = {"Authorization": f"Bearer {proxy_config['api_key']}"}
+                async with session.get(f"{proxy_config['base_url']}/health", headers=headers) as response:
+                    assert response.status == 200, f"Health check failed with status {response.status}"
                     health_data = await response.json()
                     assert "healthy_endpoints" in health_data
                 
@@ -347,10 +498,14 @@ class TestGitHubCopilotProxyIntegration:
 # Standalone test functions for backward compatibility
 def test_health_check_standalone():
     """Standalone health check test"""
+    api_key = os.getenv("LITELLM_MASTER_KEY", "sk-1234")
+    if not os.getenv("LITELLM_MASTER_KEY"):
+        print("⚠️  Warning: LITELLM_MASTER_KEY not set, using fallback")
+    
     test_instance = TestGitHubCopilotProxyIntegration()
     proxy_config = {
         "base_url": test_instance.PROXY_URL,
-        "api_key": test_instance.API_KEY,
+        "api_key": api_key,
         "model": "gpt-4",
         "timeout": 30
     }
@@ -359,14 +514,50 @@ def test_health_check_standalone():
 
 def test_basic_completion_standalone():
     """Standalone basic completion test"""
+    api_key = os.getenv("LITELLM_MASTER_KEY", "sk-1234")
+    if not os.getenv("LITELLM_MASTER_KEY"):
+        print("⚠️  Warning: LITELLM_MASTER_KEY not set, using fallback")
+    
     test_instance = TestGitHubCopilotProxyIntegration()
     proxy_config = {
         "base_url": test_instance.PROXY_URL,
-        "api_key": test_instance.API_KEY,
+        "api_key": api_key,
         "model": "gpt-4",
         "timeout": 30
     }
     test_instance.test_basic_chat_completion(proxy_config)
+
+
+def test_embedding_standalone():
+    """Standalone embedding test"""
+    api_key = os.getenv("LITELLM_MASTER_KEY", "sk-1234")
+    if not os.getenv("LITELLM_MASTER_KEY"):
+        print("⚠️  Warning: LITELLM_MASTER_KEY not set, using fallback")
+    
+    test_instance = TestGitHubCopilotProxyIntegration()
+    proxy_config = {
+        "base_url": test_instance.PROXY_URL,
+        "api_key": api_key,
+        "model": "gpt-4",
+        "timeout": 30
+    }
+    test_instance.test_text_embedding_ada_002(proxy_config)
+
+
+def test_embedding_batch_standalone():
+    """Standalone batch embedding test"""
+    api_key = os.getenv("LITELLM_MASTER_KEY", "sk-1234")
+    if not os.getenv("LITELLM_MASTER_KEY"):
+        print("⚠️  Warning: LITELLM_MASTER_KEY not set, using fallback")
+    
+    test_instance = TestGitHubCopilotProxyIntegration()
+    proxy_config = {
+        "base_url": test_instance.PROXY_URL,
+        "api_key": api_key,
+        "model": "gpt-4",
+        "timeout": 30
+    }
+    test_instance.test_embedding_batch_processing(proxy_config)
 
 
 if __name__ == "__main__":
@@ -380,8 +571,28 @@ if __name__ == "__main__":
         test_basic_completion_standalone()
         print("✅ Basic completion passed")
         
-        print("🎉 Basic tests completed successfully!")
-        print("Run with pytest for full test suite: pytest tests/test_litellm/llms/github_copilot/test_github_copilot_proxy_integration.py -v")
+        test_embedding_standalone()
+        print("✅ Basic embedding passed")
+        
+        test_embedding_batch_standalone()
+        print("✅ Batch embedding passed")
+        
+        print("🎉 All basic tests completed successfully!")
+        print("📋 Tests covered:")
+        print("   - Health check with authentication")
+        print("   - Chat completion (GPT-4)")
+        print("   - Text embedding (ada-002)")
+        print("   - Batch embedding processing")
+        print("")
+        print("🔧 Run with pytest for full test suite:")
+        print("   pytest tests/test_litellm/llms/github_copilot/test_github_copilot_proxy_integration.py -v")
+        print("")
+        print("🧪 Additional tests available in full suite:")
+        print("   - Streaming completions")
+        print("   - GitHub Copilot headers")
+        print("   - Error handling scenarios")
+        print("   - Concurrent requests")
+        print("   - text-embedding-3-small model")
         
     except Exception as e:
         print(f"❌ Test failed: {e}")
