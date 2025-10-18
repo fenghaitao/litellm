@@ -139,6 +139,12 @@ model_list:
     litellm_params:
       model: "github_copilot/grok-code-fast-1"
 
+  # IFLOW Models
+  - model_name: "Qwen3-Coder"
+    litellm_params:
+      model: "iflow/Qwen3-Coder"
+      api_key: os.environ/IFLOW_API_KEY
+
   # Embedding Models
   - model_name: "text-embedding-ada-002"
     litellm_params:
