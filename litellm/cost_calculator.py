@@ -357,6 +357,11 @@ def cost_per_token(  # noqa: PLR0915
             cost_per_token as dashscope_cost_per_token,
         )
         return dashscope_cost_per_token(model=model, usage=usage_block)
+    elif custom_llm_provider == "iflow":
+        from litellm.llms.iflow.cost_calculator import (
+            cost_per_token as iflow_cost_per_token,
+        )
+        return iflow_cost_per_token(model=model, usage=usage_block)
     else:
         model_info = _cached_get_model_info_helper(
             model=model, custom_llm_provider=custom_llm_provider

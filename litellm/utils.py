@@ -5537,6 +5537,11 @@ def validate_environment(  # noqa: PLR0915
                 keys_in_environment = True
             else:
                 missing_keys.append("DASHSCOPE_API_KEY")
+        elif custom_llm_provider == "iflow":
+            if "IFLOW_API_KEY" in os.environ:
+                keys_in_environment = True
+            else:
+                missing_keys.append("IFLOW_API_KEY")
         elif custom_llm_provider == "moonshot":
             if "MOONSHOT_API_KEY" in os.environ:
                 keys_in_environment = True

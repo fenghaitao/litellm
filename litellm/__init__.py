@@ -512,6 +512,7 @@ aiml_models: Set = set()
 deepgram_models: Set = set()
 elevenlabs_models: Set = set()
 dashscope_models: Set = set()
+iflow_models: Set = set()
 moonshot_models: Set = set()
 v0_models: Set = set()
 morph_models: Set = set()
@@ -724,6 +725,8 @@ def add_known_models():
             heroku_models.add(key)
         elif value.get("litellm_provider") == "dashscope":
             dashscope_models.add(key)
+        elif value.get("litellm_provider") == "iflow":
+            iflow_models.add(key)
         elif value.get("litellm_provider") == "moonshot":
             moonshot_models.add(key)
         elif value.get("litellm_provider") == "v0":
@@ -835,6 +838,7 @@ model_list = list(
     | deepgram_models
     | elevenlabs_models
     | dashscope_models
+    | iflow_models
     | moonshot_models
     | v0_models
     | morph_models
@@ -921,6 +925,7 @@ models_by_provider: dict = {
     "elevenlabs": elevenlabs_models,
     "heroku": heroku_models,
     "dashscope": dashscope_models,
+    "iflow": iflow_models,
     "moonshot": moonshot_models,
     "v0": v0_models,
     "morph": morph_models,
@@ -1276,6 +1281,7 @@ from .llms.github_copilot.embedding.transformation import GithubCopilotEmbedding
 from .llms.nebius.chat.transformation import NebiusConfig
 from .llms.wandb.chat.transformation import WandbConfig
 from .llms.dashscope.chat.transformation import DashScopeChatConfig
+from .llms.iflow.chat.transformation import IFlowChatConfig
 from .llms.moonshot.chat.transformation import MoonshotChatConfig
 from .llms.v0.chat.transformation import V0ChatConfig
 from .llms.oci.chat.transformation import OCIChatConfig

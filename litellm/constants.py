@@ -487,6 +487,7 @@ openai_compatible_providers: List = [
     "featherless_ai",
     "nscale",
     "nebius",
+    "iflow",
     "dashscope",
     "moonshot",
     "v0",
