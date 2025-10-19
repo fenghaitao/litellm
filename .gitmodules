@@ -1,0 +1,3 @@
+[submodule "examples/anthropic/server"]
+	path = examples/anthropic/server
+	url = https://github.com/fenghaitao/anthropic_server
