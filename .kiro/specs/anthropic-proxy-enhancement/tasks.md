@@ -1,0 +1,151 @@
+# Implementation Plan
+
+- [x] 1. Create validation module for Anthropic requests
+  - Create `litellm/proxy/anthropic_endpoints/validation.py` with comprehensive validation functions
+  - Implement `validate_anthropic_request()` for top-level request validation
+  - Implement `validate_messages()` to validate message structure and collect tool_use_ids
+  - Implement `validate_tools()` to validate tool definitions and schemas
+  - Implement `validate_content_blocks()` to validate all content block types
+  - Implement `validate_system_message()` to validate system parameter
+  - Implement `InvalidRequestError` exception class with Anthropic-compatible format
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [x] 2. Create transformation module for Anthropic ↔ OpenAI conversion
+- [x] 2.1 Implement Anthropic to OpenAI transformation
+  - Create `litellm/proxy/anthropic_endpoints/transformation.py` with transformation classes
+  - Implement `AnthropicToOpenAITransformer` class
+  - Implement `transform_messages()` to convert Anthropic messages to OpenAI format
+  - Implement `transform_tools()` to convert Anthropic tools to OpenAI format
+  - Implement `transform_tool_choice()` to convert Anthropic tool_choice to OpenAI format
+  - Handle text content blocks → string content conversion
+  - Handle tool_use blocks → tool_calls conversion with proper ID mapping
+  - Handle tool_result blocks → tool messages conversion with validation
+  - Handle image blocks → image_url format conversion
+  - Handle system parameter → system message conversion
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 2.2 Implement OpenAI to Anthropic response transformation
+  - Implement `OpenAIToAnthropicTransformer` class in transformation.py
+  - Implement `transform_response()` to convert OpenAI responses to Anthropic format
+  - Implement `map_stop_reason()` to map finish_reason values
+  - Handle text content → text content block conversion
+  - Handle tool_calls → tool_use content blocks conversion
+  - Handle usage data transformation to Anthropic format
+  - Generate proper message IDs and structure
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+
+- [x] 3. Create streaming handler for Anthropic SSE format
+  - Create `litellm/proxy/anthropic_endpoints/streaming.py` with streaming handler
+  - Implement `AnthropicStreamingHandler` class with state management
+  - Implement `transform_stream()` to convert OpenAI stream to Anthropic SSE events
+  - Implement `format_sse_event()` to format events as SSE
+  - Handle message_start event emission with metadata
+  - Handle content_block_start event emission for each content block
+  - Handle content_block_delta events with text_delta or input_json_delta
+  - Handle content_block_stop events
+  - Handle message_delta event with stop_reason and usage
+  - Handle message_stop event
+  - Maintain streaming state across chunks (message_id, content_block_index, block_type)
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+
+- [x] 4. Enhance /v1/messages endpoint with transformation logic
+  - Modify `litellm/proxy/anthropic_endpoints/endpoints.py` to integrate new modules
+  - Import validation and transformation modules
+  - Update `anthropic_response()` function to use validation module
+  - Integrate `AnthropicToOpenAITransformer` for request transformation
+  - Route transformed requests through `litellm.completion()` or router
+  - Integrate `OpenAIToAnthropicTransformer` for response transformation
+  - Handle non-streaming responses with proper Anthropic format
+  - Handle streaming responses using `AnthropicStreamingHandler`
+  - Add error handling with Anthropic-compatible error format
+  - Preserve original model name in responses
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [x] 5. Integrate with LiteLLM router and existing infrastructure
+  - Ensure transformed requests route through existing LiteLLM router logic
+  - Verify load balancing works with Anthropic requests
+  - Verify fallback mechanisms work with Anthropic requests
+  - Verify rate limiting applies to Anthropic requests
+  - Verify logging captures Anthropic request metadata
+  - Test with multiple provider configurations (OpenAI, Azure, Anthropic)
+  - Ensure authentication and authorization work correctly
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [x] 6. Add error handling and Anthropic-compatible error responses
+  - Implement error response formatting in Anthropic format
+  - Map LiteLLM exceptions to Anthropic error types
+  - Handle validation errors with proper error messages
+  - Handle provider errors with proper error types (api_error, overloaded_error)
+  - Handle authentication errors with proper error type
+  - Handle rate limit errors with proper error type
+  - Ensure all error responses include type and error fields
+  - Add logging for all error cases
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [x] 7. Ensure backward compatibility with existing functionality
+  - Verify existing `/v1/messages` pass-through mode still works
+  - Verify existing OpenAI endpoints (`/v1/chat/completions`) are unaffected
+  - Add configuration flag to enable/disable new transformation mode
+  - Ensure existing LiteLLM tests pass
+  - Test that both OpenAI and Anthropic formats can be used simultaneously
+  - Document migration path for existing users
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+
+- [ ] 8. Add comprehensive test coverage
+- [ ] 8.1 Write unit tests for validation module
+  - Create `tests/proxy_tests/test_anthropic_validation.py`
+  - Test required field validation (model, messages, max_tokens)
+  - Test message structure validation
+  - Test tool definition validation
+  - Test content block validation (text, tool_use, tool_result, image)
+  - Test tool_result reference validation
+  - Test error message formatting
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [ ]* 8.2 Write unit tests for transformation module
+  - Create `tests/proxy_tests/test_anthropic_transformation.py`
+  - Test Anthropic to OpenAI message transformation
+  - Test tool transformation (input_schema → parameters)
+  - Test tool_choice transformation (auto, any, specific tool)
+  - Test OpenAI to Anthropic response transformation
+  - Test stop_reason mapping
+  - Test edge cases (empty content, nested structures, missing fields)
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5_
+
+- [ ]* 8.3 Write unit tests for streaming handler
+  - Create `tests/proxy_tests/test_anthropic_streaming.py`
+  - Test SSE event formatting
+  - Test event sequencing (message_start → content_block_start → deltas → stops)
+  - Test content block transitions
+  - Test usage and stop_reason merging
+  - Test error handling in streams
+  - Test state management across chunks
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+
+- [ ]* 8.4 Write integration tests for end-to-end workflows
+  - Create `tests/proxy_tests/test_anthropic_e2e.py`
+  - Test complete request/response cycle with OpenAI provider
+  - Test complete request/response cycle with Azure provider
+  - Test streaming responses end-to-end
+  - Test tool use workflows (tool_use → tool_result → response)
+  - Test multi-turn conversations
+  - Test image content handling
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5_
+
+- [ ]* 8.5 Write integration tests for router functionality
+  - Create `tests/proxy_tests/test_anthropic_router.py`
+  - Test load balancing across multiple deployments
+  - Test fallback mechanisms on provider failures
+  - Test rate limiting enforcement
+  - Test logging and metrics collection
+  - Test with multiple provider configurations
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [ ]* 8.6 Write backward compatibility tests
+  - Create `tests/proxy_tests/test_anthropic_backward_compat.py`
+  - Test existing pass-through mode still works
+  - Test existing OpenAI endpoints unaffected
+  - Test configuration flag behavior
+  - Test simultaneous OpenAI and Anthropic format usage
+  - Run existing LiteLLM test suite to verify no regressions
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_ 

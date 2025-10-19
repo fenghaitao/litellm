@@ -3,6 +3,7 @@ Unified /v1/messages endpoint - (Anthropic Spec)
 """
 
 import asyncio
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
@@ -16,9 +17,157 @@ from litellm.proxy.common_request_processing import (
 )
 from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
 from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+from litellm.proxy.route_llm_request import route_request
 from litellm.types.utils import TokenCountResponse
 
+# Import transformation, validation, and error handling modules
+from litellm.proxy.anthropic_endpoints.validation import (
+    validate_anthropic_request,
+    InvalidRequestError,
+)
+from litellm.proxy.anthropic_endpoints.transformation import (
+    AnthropicToOpenAITransformer,
+    OpenAIToAnthropicTransformer,
+)
+from litellm.proxy.anthropic_endpoints.streaming import AnthropicStreamingHandler
+from litellm.proxy.anthropic_endpoints.error_handling import (
+    format_anthropic_error_response,
+    handle_validation_error,
+    handle_provider_error,
+    handle_authentication_error,
+    handle_rate_limit_error,
+    handle_generic_error,
+    map_litellm_exception_to_anthropic_error,
+)
+
 router = APIRouter()
+
+
+async def _anthropic_passthrough_handler(
+    fastapi_response: Response,
+    request: Request,
+    data: dict,
+    user_api_key_dict: UserAPIKeyAuth,
+):
+    """
+    Pass-through handler for Anthropic Messages API.
+    
+    This handler routes requests directly to the Anthropic API without transformation,
+    maintaining backward compatibility with existing pass-through implementations.
+    """
+    from litellm.proxy.proxy_server import (
+        general_settings,
+        llm_router,
+        proxy_config,
+        proxy_logging_obj,
+        user_api_base,
+        user_max_tokens,
+        user_model,
+        user_request_timeout,
+        user_temperature,
+        version,
+    )
+    
+    try:
+        # Use the existing anthropic_messages handler for pass-through
+        # This maintains backward compatibility with the original implementation
+        
+        # Setup base processing
+        base_llm_processor = ProxyBaseLLMRequestProcessing(data=data)
+        
+        # Apply common pre-call processing
+        data, logging_obj = await base_llm_processor.common_processing_pre_call_logic(
+            request=request,
+            general_settings=general_settings,
+            user_api_key_dict=user_api_key_dict,
+            proxy_logging_obj=proxy_logging_obj,
+            proxy_config=proxy_config,
+            route_type="anthropic_messages",
+            version=version,
+            user_model=user_model,
+            user_temperature=user_temperature,
+            user_request_timeout=user_request_timeout,
+            user_max_tokens=user_max_tokens,
+            user_api_base=user_api_base,
+        )
+        
+        # Setup parallel tasks
+        tasks = []
+        tasks.append(
+            proxy_logging_obj.during_call_hook(
+                data=data,
+                user_api_key_dict=user_api_key_dict,
+                call_type="anthropic_messages",
+            )
+        )
+        
+        # Route through LiteLLM's anthropic_messages handler
+        llm_call = await route_request(
+            data=data,
+            route_type="anthropic_messages",
+            llm_router=llm_router,
+            user_model=user_model,
+        )
+        tasks.append(llm_call)
+        
+        # Wait for completion
+        llm_responses = asyncio.gather(*tasks)
+        responses = await llm_responses
+        response = responses[1]
+        
+        # Extract metadata
+        hidden_params = getattr(response, "_hidden_params", {}) or {}
+        model_id = hidden_params.get("model_id", None) or ""
+        cache_key = hidden_params.get("cache_key", None) or ""
+        api_base = hidden_params.get("api_base", None) or ""
+        response_cost = hidden_params.get("response_cost", None) or ""
+        
+        # Update request status
+        asyncio.create_task(
+            proxy_logging_obj.update_request_status(
+                litellm_call_id=data.get("litellm_call_id", ""), status="success"
+            )
+        )
+        
+        # Set custom headers
+        fastapi_response.headers.update(
+            ProxyBaseLLMRequestProcessing.get_custom_headers(
+                user_api_key_dict=user_api_key_dict,
+                call_id=logging_obj.litellm_call_id,
+                model_id=model_id,
+                cache_key=cache_key,
+                api_base=api_base,
+                version=version,
+                response_cost=response_cost,
+                request_data=data,
+                hidden_params=hidden_params,
+            )
+        )
+        
+        # Handle streaming vs non-streaming
+        if data.get("stream", False):
+            return await create_streaming_response(
+                generator=response,
+                media_type="text/event-stream",
+                headers=dict(fastapi_response.headers),
+            )
+        else:
+            # Call post-success hooks
+            response = await proxy_logging_obj.post_call_success_hook(
+                data=data,
+                user_api_key_dict=user_api_key_dict,
+                response=response,  # type: ignore
+            )
+            return response
+            
+    except Exception as e:
+        # Handle errors
+        await proxy_logging_obj.post_call_failure_hook(
+            user_api_key_dict=user_api_key_dict,
+            original_exception=e,
+            request_data=data,
+        )
+        raise
 
 
 @router.post(
@@ -32,9 +181,25 @@ async def anthropic_response(  # noqa: PLR0915
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    Use `{PROXY_BASE_URL}/anthropic/v1/messages` instead - [Docs](https://docs.litellm.ai/docs/anthropic_completion).
-
-    This was a BETA endpoint that calls 100+ LLMs in the anthropic format.
+    Anthropic Messages API endpoint with optional transformation to OpenAI format.
+    
+    This endpoint supports two modes:
+    
+    1. Transformation Mode (default, anthropic_transformation_enabled=true):
+       - Accepts Anthropic-formatted requests
+       - Transforms them to OpenAI format
+       - Routes through LiteLLM's infrastructure to any provider
+       - Transforms responses back to Anthropic format
+       - Supports: Text/image content, tool calling, streaming, all LiteLLM routing features
+    
+    2. Pass-Through Mode (anthropic_transformation_enabled=false):
+       - Accepts Anthropic-formatted requests
+       - Routes directly to Anthropic API without transformation
+       - Returns Anthropic-formatted responses
+       - Maintains backward compatibility with existing implementations
+    
+    Configuration:
+    Set `anthropic_transformation_enabled: false` in general_settings to use pass-through mode.
     """
     from litellm.proxy.proxy_server import (
         general_settings,
@@ -51,127 +216,136 @@ async def anthropic_response(  # noqa: PLR0915
 
     request_data = await _read_request_body(request=request)
     data: dict = {**request_data}
-    try:
-        data["model"] = (
-            general_settings.get("completion_model", None)  # server default
-            or user_model  # model name passed via cli args
-            or data.get("model", None)  # default passed in http request
+    
+    # Check if transformation mode is enabled (default: True)
+    transformation_enabled = True
+    if general_settings is not None:
+        transformation_enabled = getattr(
+            general_settings, 
+            "anthropic_transformation_enabled", 
+            True
         )
-        if user_model:
-            data["model"] = user_model
-
-        data = await add_litellm_data_to_request(
-            data=data,  # type: ignore
+    
+    # If transformation is disabled, use pass-through mode
+    if not transformation_enabled:
+        return await _anthropic_passthrough_handler(
+            fastapi_response=fastapi_response,
+            request=request,
+            data=data,
+            user_api_key_dict=user_api_key_dict,
+        )
+    
+    try:
+        # Step 1: Validate Anthropic request
+        try:
+            validate_anthropic_request(data)
+        except InvalidRequestError as e:
+            error_response, status_code = handle_validation_error(e)
+            return Response(
+                content=json.dumps(error_response),
+                status_code=status_code,
+                media_type="application/json"
+            )
+        
+        # Store original model name and system for response transformation
+        original_model = data.get("model", "")
+        anthropic_system = data.get("system")
+        
+        # Step 2: Transform Anthropic request to OpenAI format
+        anthropic_to_openai = AnthropicToOpenAITransformer()
+        
+        # Extract Anthropic-specific fields
+        anthropic_messages = data.get("messages", [])
+        anthropic_tools = data.get("tools")
+        anthropic_tool_choice = data.get("tool_choice")
+        
+        # Transform messages
+        openai_messages = anthropic_to_openai.transform_messages(
+            anthropic_messages,
+            system=anthropic_system
+        )
+        data["messages"] = openai_messages
+        
+        # Transform tools if provided
+        if anthropic_tools:
+            openai_tools = anthropic_to_openai.transform_tools(anthropic_tools)
+            data["tools"] = openai_tools
+        
+        # Transform tool_choice if provided
+        if anthropic_tool_choice:
+            openai_tool_choice = anthropic_to_openai.transform_tool_choice(
+                anthropic_tool_choice
+            )
+            data["tool_choice"] = openai_tool_choice
+        
+        # Remove Anthropic-specific fields that don't exist in OpenAI format
+        data.pop("system", None)  # Already converted to system message
+        
+        # Step 3: Use ProxyBaseLLMRequestProcessing for standard processing
+        base_llm_processor = ProxyBaseLLMRequestProcessing(data=data)
+        
+        # Apply common pre-call processing (auth, rate limiting, logging setup)
+        data, logging_obj = await base_llm_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
             user_api_key_dict=user_api_key_dict,
-            version=version,
+            proxy_logging_obj=proxy_logging_obj,
             proxy_config=proxy_config,
+            route_type="acompletion",
+            version=version,
+            user_model=user_model,
+            user_temperature=user_temperature,
+            user_request_timeout=user_request_timeout,
+            user_max_tokens=user_max_tokens,
+            user_api_base=user_api_base,
         )
-
-        # override with user settings, these are params passed via cli
-        if user_temperature:
-            data["temperature"] = user_temperature
-        if user_request_timeout:
-            data["request_timeout"] = user_request_timeout
-        if user_max_tokens:
-            data["max_tokens"] = user_max_tokens
-        if user_api_base:
-            data["api_base"] = user_api_base
-
-        ### MODEL ALIAS MAPPING ###
-        # check if model name in model alias map
-        # get the actual model name
-        if data["model"] in litellm.model_alias_map:
-            data["model"] = litellm.model_alias_map[data["model"]]
-
-        ### CALL HOOKS ### - modify incoming data before calling the model
-        data = await proxy_logging_obj.pre_call_hook(  # type: ignore
-            user_api_key_dict=user_api_key_dict, data=data, call_type="text_completion"
-        )
-
+        
+        # Step 4: Setup parallel tasks (hooks + LLM call)
         tasks = []
         tasks.append(
             proxy_logging_obj.during_call_hook(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                call_type=ProxyBaseLLMRequestProcessing._get_pre_call_type(
-                    route_type="anthropic_messages"  # type: ignore
-                ),
+                call_type="completion",
             )
         )
-
-        ### ROUTE THE REQUESTs ###
-        router_model_names = llm_router.model_names if llm_router is not None else []
-
-        # skip router if user passed their key
-        if (
-            llm_router is not None and data["model"] in router_model_names
-        ):  # model in router model list
-            llm_coro = llm_router.aanthropic_messages(**data)
-        elif (
-            llm_router is not None
-            and llm_router.model_group_alias is not None
-            and data["model"] in llm_router.model_group_alias
-        ):  # model set in model_group_alias
-            llm_coro = llm_router.aanthropic_messages(**data)
-        elif (
-            llm_router is not None and data["model"] in llm_router.deployment_names
-        ):  # model in router deployments, calling a specific deployment on the router
-            llm_coro = llm_router.aanthropic_messages(**data, specific_deployment=True)
-        elif (
-            llm_router is not None and llm_router.has_model_id(data["model"])
-        ):  # model in router model list
-            llm_coro = llm_router.aanthropic_messages(**data)
-        elif (
-            llm_router is not None
-            and data["model"] not in router_model_names
-            and (
-                llm_router.default_deployment is not None
-                or len(llm_router.pattern_router.patterns) > 0
-            )
-        ):  # model in router deployments, calling a specific deployment on the router
-            llm_coro = llm_router.aanthropic_messages(**data)
-        elif user_model is not None:  # `litellm --model <your-model-name>`
-            llm_coro = litellm.anthropic_messages(**data)
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "completion: Invalid model name passed in model="
-                    + data.get("model", "")
-                },
-            )
-
-        tasks.append(llm_coro)
-
-        # wait for call to end
-        llm_responses = asyncio.gather(
-            *tasks
-        )  # run the moderation check in parallel to the actual llm api call
-
+        
+        # Step 5: Route the request through LiteLLM's router infrastructure
+        # This handles load balancing, fallbacks, rate limiting, etc.
+        llm_call = await route_request(
+            data=data,
+            route_type="acompletion",
+            llm_router=llm_router,
+            user_model=user_model,
+        )
+        tasks.append(llm_call)
+        
+        # Wait for all tasks to complete
+        llm_responses = asyncio.gather(*tasks)
         responses = await llm_responses
-
         response = responses[1]
-
+        
+        # Extract metadata from response
         hidden_params = getattr(response, "_hidden_params", {}) or {}
         model_id = hidden_params.get("model_id", None) or ""
         cache_key = hidden_params.get("cache_key", None) or ""
         api_base = hidden_params.get("api_base", None) or ""
         response_cost = hidden_params.get("response_cost", None) or ""
-
-        ### ALERTING ###
+        
+        # Update request status for monitoring
         asyncio.create_task(
             proxy_logging_obj.update_request_status(
                 litellm_call_id=data.get("litellm_call_id", ""), status="success"
             )
         )
-
+        
         verbose_proxy_logger.debug("final response: %s", response)
-
+        
+        # Set custom headers with routing metadata
         fastapi_response.headers.update(
             ProxyBaseLLMRequestProcessing.get_custom_headers(
                 user_api_key_dict=user_api_key_dict,
+                call_id=logging_obj.litellm_call_id,
                 model_id=model_id,
                 cache_key=cache_key,
                 api_base=api_base,
@@ -181,47 +355,116 @@ async def anthropic_response(  # noqa: PLR0915
                 hidden_params=hidden_params,
             )
         )
-
-        if (
-            "stream" in data and data["stream"] is True
-        ):  # use generate_responses to stream responses
-            selected_data_generator = (
-                ProxyBaseLLMRequestProcessing.async_sse_data_generator(
-                    response=response,
-                    user_api_key_dict=user_api_key_dict,
-                    request_data=data,
-                    proxy_logging_obj=proxy_logging_obj,
-                )
+        
+        # Step 6: Transform response back to Anthropic format
+        if data.get("stream", False):
+            # Handle streaming responses
+            streaming_handler = AnthropicStreamingHandler()
+            
+            # Transform OpenAI stream to Anthropic SSE format
+            anthropic_stream = streaming_handler.transform_stream(
+                openai_stream=response,
+                model=original_model,
+                system=anthropic_system
             )
-
+            
             return await create_streaming_response(
-                generator=selected_data_generator,
+                generator=anthropic_stream,
                 media_type="text/event-stream",
                 headers=dict(fastapi_response.headers),
             )
-
-        ### CALL HOOKS ### - modify outgoing data
-        response = await proxy_logging_obj.post_call_success_hook(
-            data=data, user_api_key_dict=user_api_key_dict, response=response # type: ignore
-        )
-
-        verbose_proxy_logger.debug("\nResponse from Litellm:\n{}".format(response))
-        return response
-    except Exception as e:
+        else:
+            # Handle non-streaming responses
+            openai_to_anthropic = OpenAIToAnthropicTransformer()
+            
+            # Convert response to dict if needed
+            if hasattr(response, "model_dump"):
+                response_dict = response.model_dump()
+            elif hasattr(response, "dict"):
+                response_dict = response.dict()
+            elif isinstance(response, dict):
+                response_dict = response
+            else:
+                response_dict = {"choices": [{"message": {"content": str(response)}}]}
+            
+            # Transform to Anthropic format
+            anthropic_response = openai_to_anthropic.transform_response(
+                response_dict,
+                original_model=original_model
+            )
+            
+            # Call post-success hooks
+            anthropic_response = await proxy_logging_obj.post_call_success_hook(
+                data=data, 
+                user_api_key_dict=user_api_key_dict, 
+                response=anthropic_response  # type: ignore
+            )
+            
+            verbose_proxy_logger.debug("\nResponse from Litellm:\n{}".format(anthropic_response))
+            return anthropic_response
+            
+    except InvalidRequestError as e:
+        # Handle validation errors with Anthropic format
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.anthropic_response(): Exception occured - {}".format(
-                str(e)
-            )
+        error_response, status_code = handle_validation_error(e)
+        return Response(
+            content=json.dumps(error_response),
+            status_code=status_code,
+            media_type="application/json"
         )
-        error_msg = f"{str(e)}"
-        raise ProxyException(
-            message=getattr(e, "message", error_msg),
-            type=getattr(e, "type", "None"),
-            param=getattr(e, "param", "None"),
-            code=getattr(e, "status_code", 500),
+    except litellm.AuthenticationError as e:
+        # Handle authentication errors
+        await proxy_logging_obj.post_call_failure_hook(
+            user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
+        )
+        error_response, status_code = handle_authentication_error(e)
+        return Response(
+            content=json.dumps(error_response),
+            status_code=status_code,
+            media_type="application/json"
+        )
+    except litellm.RateLimitError as e:
+        # Handle rate limit errors
+        await proxy_logging_obj.post_call_failure_hook(
+            user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
+        )
+        error_response, status_code = handle_rate_limit_error(e)
+        return Response(
+            content=json.dumps(error_response),
+            status_code=status_code,
+            media_type="application/json"
+        )
+    except (
+        litellm.BadRequestError,
+        litellm.NotFoundError,
+        litellm.Timeout,
+        litellm.ServiceUnavailableError,
+        litellm.InternalServerError,
+        litellm.APIError,
+        litellm.APIConnectionError,
+    ) as e:
+        # Handle provider errors with proper Anthropic error types
+        await proxy_logging_obj.post_call_failure_hook(
+            user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
+        )
+        error_response, status_code = handle_provider_error(e)
+        return Response(
+            content=json.dumps(error_response),
+            status_code=status_code,
+            media_type="application/json"
+        )
+    except Exception as e:
+        # Handle all other errors
+        await proxy_logging_obj.post_call_failure_hook(
+            user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
+        )
+        error_response, status_code = handle_generic_error(e)
+        return Response(
+            content=json.dumps(error_response),
+            status_code=status_code,
+            media_type="application/json"
         )
 
 

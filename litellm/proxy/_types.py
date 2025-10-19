@@ -1740,6 +1740,10 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
         description="[DEPRECATED] Use 'user_header_mappings' instead. When set, the header value is treated as the end user id unless overridden by user_header_mappings.",
     )
     user_header_mappings: Optional[List[UserHeaderMapping]] = None
+    anthropic_transformation_enabled: Optional[bool] = Field(
+        True,
+        description="Enable Anthropic-to-OpenAI transformation for /v1/messages endpoint. When True, transforms Anthropic requests to OpenAI format and routes to any provider. When False, uses pass-through mode to Anthropic API.",
+    )
 
 
 class ConfigYAML(LiteLLMPydanticObjectBase):
