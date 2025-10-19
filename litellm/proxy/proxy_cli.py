@@ -612,7 +612,6 @@ def run_server(  # noqa: PLR0915
 
         db_connection_pool_limit = 100
         db_connection_timeout = 60
-        general_settings = {}
         ### GET DB TOKEN FOR IAM AUTH ###
 
         if iam_token_db_auth:
@@ -727,6 +726,9 @@ def run_server(  # noqa: PLR0915
                 os.chdir(original_dir)
             if database_url is not None and isinstance(database_url, str):
                 os.environ["DATABASE_URL"] = database_url
+            
+            # Set WORKER_CONFIG to pass the full config to the server startup
+            os.environ["WORKER_CONFIG"] = config
 
         # Handle database URL construction when no config file is used
         if config is None and os.getenv("DATABASE_URL") is None:
@@ -745,6 +747,7 @@ def run_server(  # noqa: PLR0915
             db_connection_timeout = (
                 LiteLLMDatabaseConnectionPool.database_connection_pool_timeout.value
             )
+            general_settings = {}  # Initialize empty general_settings if no config
 
         if (
             os.getenv("DATABASE_URL", None) is not None

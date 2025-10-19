@@ -167,6 +167,7 @@ from litellm.proxy.analytics_endpoints.analytics_endpoints import (
     router as analytics_router,
 )
 from litellm.proxy.anthropic_endpoints.endpoints import router as anthropic_router
+from litellm.proxy.anthropic_endpoints.config import initialize_anthropic_endpoints
 from litellm.proxy.auth.auth_checks import (
     ExperimentalUIJWTToken,
     get_team_object,
@@ -563,7 +564,7 @@ async def proxy_shutdown_event():
 
 @asynccontextmanager
 async def proxy_startup_event(app: FastAPI):
-    global prisma_client, master_key, use_background_health_checks, llm_router, llm_model_list, general_settings, proxy_budget_rescheduler_min_time, proxy_budget_rescheduler_max_time, litellm_proxy_admin_name, db_writer_client, store_model_in_db, premium_user, _license_check, proxy_batch_polling_interval
+    global prisma_client, master_key, use_background_health_checks, llm_router, llm_model_list, general_settings, proxy_budget_rescheduler_min_time, proxy_budget_rescheduler_max_time, litellm_proxy_admin_name, db_writer_client, store_model_in_db, premium_user, _license_check, proxy_batch_polling_interval, proxy_config
     import json
 
     init_verbose_loggers()
@@ -677,6 +678,19 @@ async def proxy_startup_event(app: FastAPI):
 
     ## [Optional] Initialize dd tracer
     ProxyStartupEvent._init_dd_tracer()
+
+    ## Initialize Enhanced Anthropic Endpoints ##
+    try:
+        verbose_proxy_logger.debug(f"Initializing Anthropic endpoints with general_settings: {general_settings}")
+        # Pass general_settings from loaded configuration
+        initialize_anthropic_endpoints(
+            general_settings=general_settings
+        )
+        verbose_proxy_logger.info("Enhanced Anthropic endpoints initialized successfully")
+    except Exception as e:
+        verbose_proxy_logger.warning(f"Failed to initialize enhanced Anthropic endpoints: {e}")
+        import traceback
+        verbose_proxy_logger.debug(f"Anthropic endpoints initialization traceback: {traceback.format_exc()}")
 
     # End of startup event
     yield

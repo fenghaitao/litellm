@@ -1,0 +1,91 @@
+# Enhanced Anthropic API Configuration with iflow/Qwen3-Coder
+# Enables Claude Code compatibility using iflow's Qwen3-Coder model
+
+model_list:
+  # iflow Qwen3-Coder model
+  - model_name: qwen3-coder
+    litellm_params:
+      model: iflow/Qwen3-Coder
+      api_key: os.environ/IFLOW_API_KEY
+      api_base: https://apis.iflow.cn/v1
+  
+
+general_settings:
+  # Master key for proxy access
+  master_key: your-proxy-master-key-here
+  
+  # Allow requests even when database is unavailable (limited functionality)
+  allow_requests_on_db_unavailable: true
+  
+  # Enhanced Anthropic configuration with iflow mapping
+  anthropic:
+    model_mappings:
+      # Define which tier each Anthropic model belongs to
+      anthropic_models:
+        # Claude 3 models
+        claude-3-opus-20240229: big
+        claude-3-sonnet-20240229: medium
+        claude-3-haiku-20240307: small
+        
+        # Claude 3.5 models  
+        claude-3-5-sonnet-20240620: medium
+        claude-3-5-sonnet-20241022: medium
+        claude-3-5-sonnet-latest: medium
+        claude-3-5-haiku-20241022: small
+        claude-3-5-haiku-latest: small
+        
+        # Claude 4 models (future)
+        claude-sonnet-4-20250514: big
+        claude-sonnet-4-5-20250929: big
+        claude-3-7-sonnet-20250219: big
+        claude-opus-4-1-20250805: big
+        
+      # Define provider-specific model mappings
+      providers:
+        # iflow as default provider using qwen3-coder
+        iflow:
+          prefix: ""
+          default: true
+          models:
+            big: "qwen3-coder"
+            medium: "qwen3-coder"
+            small: "qwen3-coder"
+          # iflow-specific configuration
+          api_base: "https://apis.iflow.cn/v1"
+
+# LiteLLM settings optimized for iflow
+litellm_settings:
+  # Enable success and failure callbacks for logging
+  success_callback: []
+  failure_callback: []
+  
+  # Disable caching initially for testing
+  cache: false
+  
+  # iflow-optimized settings
+  request_timeout: 600
+  num_retries: 3
+  
+  # Allow parameter modification for better compatibility
+  modify_params: true
+  
+  # Drop invalid parameters rather than failing
+  drop_params: true
+  
+  # Enable content list to string conversion (required for iflow)
+  convert_content_list_to_str: true
+
+# Router settings (optional, for load balancing if you have multiple iflow endpoints)
+router_settings:
+  routing_strategy: "least-busy"
+  allowed_fails: 3
+  cooldown_time: 30
+  retry_policy:
+    timeout: 30
+    max_retries: 3
+
+# Environment variables required:
+# export IFLOW_API_KEY="your-iflow-api-key"
+
+# Optional environment variables:
+# export IFLOW_API_BASE="https://apis.iflow.cn/v1"  # (default if not specified)
