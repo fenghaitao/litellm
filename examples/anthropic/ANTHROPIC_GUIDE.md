@@ -346,6 +346,63 @@ router = Router(model_list=[...], num_retries=3, retry_after=60)
 tools = [{"type": "function", "function": {...}}]
 ```
 
+## Reverse Translation: Anthropic Format → Any Provider
+
+LiteLLM Proxy also supports **reverse translation** - accepting requests in native Anthropic format and routing them to any provider (OpenAI, Azure, etc.).
+
+### Use Case
+
+You have existing code using Anthropic's SDK but want to:
+- Route to different providers without changing code
+- Add load balancing and fallbacks
+- Track costs and enforce rate limits
+- A/B test different models
+
+### How It Works
+
+```python
+import anthropic
+
+# Point Anthropic SDK to LiteLLM proxy
+client = anthropic.Anthropic(
+    api_key="sk-proxy-key",
+    base_url="http://localhost:4000/anthropic"  # Proxy endpoint
+)
+
+# Use native Anthropic format - routes to ANY provider!
+message = client.messages.create(
+    model="gpt-4",  # Can be OpenAI, Azure, etc.
+    max_tokens=1024,
+    system="You are helpful",
+    messages=[
+        {"role": "user", "content": "Hello!"}
+    ]
+)
+```
+
+### Translation Flow
+
+```
+Your Code (Anthropic SDK)
+    ↓ Anthropic Format
+LiteLLM Proxy (/anthropic/v1/messages)
+    ↓ Translates to OpenAI Format
+OpenAI API (or any provider)
+    ↓ OpenAI Response
+LiteLLM Proxy
+    ↓ Translates back to Anthropic Format
+Your Code (Anthropic SDK)
+```
+
+### Benefits
+
+- **No code changes**: Keep using Anthropic SDK
+- **Provider flexibility**: Route to OpenAI, Azure, etc.
+- **Proxy features**: Fallbacks, cost tracking, rate limiting
+- **Easy migration**: Switch providers without rewriting code
+
+See [reverse_translation_example.py](./reverse_translation_example.py) for detailed examples.
+
 ## Resources
 
 - [Anthropic API Docs](https://docs.anthropic.com/)
@@ -353,3 +410,4 @@ tools = [{"type": "function", "function": {...}}]
 - [LiteLLM Anthropic Provider Docs](https://docs.litellm.ai/docs/providers/anthropic)
 - [Example Code](./anthropic_example.py)
 - [Quick Start](./anthropic_quickstart.py)
+- [Reverse Translation](./reverse_translation_example.py)

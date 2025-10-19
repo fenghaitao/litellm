@@ -1,0 +1,37 @@
+# LiteLLM Proxy Configuration for GitHub Copilot
+# This allows you to use Anthropic SDK format with GitHub Copilot's GPT-4 models
+# GitHub Copilot uses OAuth2 authentication - no API key needed!
+
+model_list:
+  # GitHub Copilot GPT-4 model
+  - model_name: copilot-gpt4
+    litellm_params:
+      model: github_copilot/gpt-4
+      # No api_key needed - GitHub Copilot uses OAuth2
+
+  # GitHub Copilot GPT-3.5 Turbo
+  - model_name: copilot-gpt35
+    litellm_params:
+      model: github_copilot/gpt-3.5-turbo
+
+  # Note: If gpt-4-turbo is not supported, you can try:
+  # - model_name: copilot-gpt4o
+  #   litellm_params:
+  #     model: github_copilot/gpt-4o
+
+  # Optional: Add other models for comparison
+  # - model_name: claude
+  #   litellm_params:
+  #     model: anthropic/claude-3-5-sonnet-20241022
+  #     api_key: os.environ/ANTHROPIC_API_KEY
+
+# Disable authentication for easier testing
+# To enable auth, uncomment and set LITELLM_MASTER_KEY
+general_settings:
+  allow_requests_on_db_unavailable: true
+#   master_key: os.environ/LITELLM_MASTER_KEY
+
+# Enable verbose logging to see translation in action
+litellm_settings:
+  set_verbose: true
+  drop_params: true  # Drop unsupported params instead of erroring

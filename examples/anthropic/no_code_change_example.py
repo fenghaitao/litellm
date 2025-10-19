@@ -28,7 +28,8 @@ def original_code_no_changes():
     It will automatically use LiteLLM proxy if ANTHROPIC_BASE_URL is set.
     """
     client = anthropic.Anthropic(
-        api_key=os.environ.get("ANTHROPIC_API_KEY")
+        api_key=os.environ.get("LITELLM_MASTER_KEY"),
+        base_url="http://localhost:4000"  # ← ONLY CHANGE: Add this line
     )
     
     message = client.messages.create(
@@ -441,3 +442,4 @@ if __name__ == "__main__":
     print("2. Set env var: export ANTHROPIC_BASE_URL='http://localhost:4000/v1/messages'")
     print("3. Run your original Anthropic script - it just works!")
     print("="*80 + "\n")
+    original_code_no_changes()
