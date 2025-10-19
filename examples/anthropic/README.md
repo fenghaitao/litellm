@@ -2,107 +2,139 @@
 
 Complete examples and documentation for using LiteLLM with Anthropic's Claude models, including **bidirectional translation** between OpenAI and Anthropic formats.
 
-## 📚 Files Overview
+## 📁 Directory Structure
 
-### Quick Start
-- **[anthropic_quickstart.py](./anthropic_quickstart.py)** - 10-line minimal example to get started
-
-### Comprehensive Examples
-- **[anthropic_example.py](./anthropic_example.py)** - 13 detailed examples covering:
-  - Basic completion, streaming, async
-  - Multi-turn conversations, system prompts
-  - Tool/function calling, vision
-  - Prompt caching, extended thinking
-  - Error handling, load balancing
-
-### Migration & Proxy
-- **[anthropic_to_proxy_migration.py](./anthropic_to_proxy_migration.py)** - Side-by-side comparison:
-  - Original Anthropic SDK vs LiteLLM Proxy
-  - Migration checklist and examples
-  - Benefits comparison
-
-- **[complete_anthropic_proxy_example.py](./complete_anthropic_proxy_example.py)** - Real-world examples:
-  - Chatbot implementation
-  - Batch processing
-  - Tool calling
-  - Before/after comparisons
-
-- **[proxy_config.yaml](./proxy_config.yaml)** - Complete proxy configuration examples
-
-### Reverse Translation ⭐ NEW
-- **[reverse_translation_example.py](./reverse_translation_example.py)** - Use Anthropic SDK with any provider:
-  - Keep Anthropic format, route to OpenAI/Azure
-  - Bidirectional translation explained
-  - Migration without code changes
-
-### Documentation
-- **[ANTHROPIC_GUIDE.md](./ANTHROPIC_GUIDE.md)** - Complete integration guide:
-  - Architecture overview
-  - Supported models and features
-  - Parameter mapping
-  - Best practices and troubleshooting
-
-- **[anthropic_code_flow.md](./anthropic_code_flow.md)** - Deep dive into internals:
-  - Step-by-step request flow
-  - Code transformation process
-  - File references
+```
+examples/anthropic/
+├── README.md                    # This file - start here
+├── docs/                        # Documentation
+│   ├── SUMMARY.md              # Complete overview
+│   ├── ANTHROPIC_GUIDE.md      # Integration guide
+│   ├── AUTHENTICATION_GUIDE.md # Authentication details
+│   ├── ENDPOINT_AVAILABILITY.md # Proxy endpoints
+│   ├── ROUTING_LOGIC.md        # How routing works
+│   ├── TRANSLATION_TRIGGER.md  # Translation details
+│   ├── anthropic_code_flow.md  # Internal code flow
+│   ├── GITHUB_COPILOT_QUICKSTART.md # GitHub Copilot guide
+│   └── RUN_GITHUB_COPILOT.md   # GitHub Copilot setup
+├── examples/                    # Code examples
+│   ├── anthropic_quickstart.py # 10-line quick start
+│   ├── anthropic_example.py    # 13 comprehensive examples
+│   ├── anthropic_to_proxy_migration.py # Migration guide
+│   ├── complete_anthropic_proxy_example.py # Full examples
+│   ├── reverse_translation_example.py # Reverse translation
+│   ├── test_github_copilot.py  # GitHub Copilot test
+│   └── no_code_change_example.py # No code change demo
+└── configs/                     # Configuration files
+    ├── proxy_config.yaml       # General proxy config
+    └── github_copilot_example.yaml # GitHub Copilot config
+```
 
 ## 🚀 Quick Start
 
-### 1. Install
+### Option 1: Library (Forward Translation)
+
+Use OpenAI format with Anthropic models:
+
 ```bash
+# Install
 pip install litellm
+
+# Run
+python examples/anthropic_quickstart.py
 ```
 
-### 2. Set API Key
+### Option 2: Proxy (Reverse Translation)
+
+Use Anthropic format with any provider:
+
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+# Install
+pip install 'litellm[proxy]'
+
+# Start proxy
+litellm --config configs/proxy_config.yaml
+
+# Test
+python examples/test_github_copilot.py
 ```
 
-### 3. Run
-```bash
-python anthropic_quickstart.py
-```
+## 📚 Documentation
 
-## 🔄 Two Ways to Use LiteLLM with Anthropic
+### Getting Started
+- **[SUMMARY.md](docs/SUMMARY.md)** - Complete overview of everything
+- **[ANTHROPIC_GUIDE.md](docs/ANTHROPIC_GUIDE.md)** - Integration guide with examples
+- **[anthropic_code_flow.md](docs/anthropic_code_flow.md)** - How it works internally
 
-### Option 1: OpenAI Format → Anthropic (Forward Translation)
+### Authentication & Setup
+- **[AUTHENTICATION_GUIDE.md](docs/AUTHENTICATION_GUIDE.md)** - How to pass API keys
+- **[ENDPOINT_AVAILABILITY.md](docs/ENDPOINT_AVAILABILITY.md)** - Available endpoints
 
-Use OpenAI-compatible code that works with 100+ providers:
+### Advanced Topics
+- **[ROUTING_LOGIC.md](docs/ROUTING_LOGIC.md)** - How LiteLLM decides routing
+- **[TRANSLATION_TRIGGER.md](docs/TRANSLATION_TRIGGER.md)** - When translation happens
+
+### GitHub Copilot
+- **[GITHUB_COPILOT_QUICKSTART.md](docs/GITHUB_COPILOT_QUICKSTART.md)** - Use Anthropic SDK with GitHub Copilot
+- **[RUN_GITHUB_COPILOT.md](docs/RUN_GITHUB_COPILOT.md)** - Setup guide
+
+## 💻 Code Examples
+
+### Basic Examples
+- **[anthropic_quickstart.py](examples/anthropic_quickstart.py)** - Minimal 10-line example
+- **[anthropic_example.py](examples/anthropic_example.py)** - 13 comprehensive examples
+
+### Migration & Proxy
+- **[anthropic_to_proxy_migration.py](examples/anthropic_to_proxy_migration.py)** - Before/after comparison
+- **[complete_anthropic_proxy_example.py](examples/complete_anthropic_proxy_example.py)** - Real-world examples
+- **[reverse_translation_example.py](examples/reverse_translation_example.py)** - Anthropic format → Any provider
+
+### Testing
+- **[test_github_copilot.py](examples/test_github_copilot.py)** - Test GitHub Copilot integration
+- **[no_code_change_example.py](examples/no_code_change_example.py)** - Zero code changes demo
+
+## ⚙️ Configuration Files
+
+- **[proxy_config.yaml](configs/proxy_config.yaml)** - General proxy configuration with examples
+- **[github_copilot_example.yaml](configs/github_copilot_example.yaml)** - GitHub Copilot specific config
+
+## 🎯 Use Cases
+
+| Scenario | Documentation | Example | Config |
+|----------|--------------|---------|--------|
+| New app, multi-provider | [ANTHROPIC_GUIDE.md](docs/ANTHROPIC_GUIDE.md) | [anthropic_example.py](examples/anthropic_example.py) | - |
+| Existing Anthropic code | [SUMMARY.md](docs/SUMMARY.md) | [reverse_translation_example.py](examples/reverse_translation_example.py) | [proxy_config.yaml](configs/proxy_config.yaml) |
+| GitHub Copilot | [GITHUB_COPILOT_QUICKSTART.md](docs/GITHUB_COPILOT_QUICKSTART.md) | [test_github_copilot.py](examples/test_github_copilot.py) | [github_copilot_example.yaml](configs/github_copilot_example.yaml) |
+| Migration from Anthropic | [ANTHROPIC_GUIDE.md](docs/ANTHROPIC_GUIDE.md) | [anthropic_to_proxy_migration.py](examples/anthropic_to_proxy_migration.py) | [proxy_config.yaml](configs/proxy_config.yaml) |
+| Production deployment | [SUMMARY.md](docs/SUMMARY.md) | [complete_anthropic_proxy_example.py](examples/complete_anthropic_proxy_example.py) | [proxy_config.yaml](configs/proxy_config.yaml) |
+
+## 🔄 Two Ways to Use LiteLLM
+
+### Forward Translation (OpenAI → Anthropic)
+
+Use OpenAI format, LiteLLM translates to Anthropic:
 
 ```python
 from litellm import completion
 
-# Your code uses OpenAI format
 response = completion(
     model="anthropic/claude-3-5-sonnet-20241022",
     messages=[{"role": "user", "content": "Hello!"}]
 )
-
-# Switch providers by changing model name
-# model="openai/gpt-4"
-# model="azure/gpt-4"
 ```
 
-**Use when:**
-- Building new applications
-- Want unified interface across providers
-- Need easy provider switching
+### Reverse Translation (Anthropic → Any Provider)
 
-### Option 2: Anthropic Format → Any Provider (Reverse Translation) ⭐
-
-Keep using Anthropic SDK, route to any provider via proxy:
+Use Anthropic format, LiteLLM translates to any provider:
 
 ```python
 import anthropic
 
-# Point Anthropic SDK to LiteLLM proxy
 client = anthropic.Anthropic(
     api_key="sk-proxy-key",
-    base_url="http://localhost:4000/anthropic"
+    base_url="http://localhost:4000"
 )
 
-# Use native Anthropic format
 message = client.messages.create(
     model="gpt-4",  # Routes to OpenAI!
     max_tokens=1024,
@@ -110,118 +142,16 @@ message = client.messages.create(
 )
 ```
 
-**Use when:**
-- Have existing Anthropic SDK code
-- Want to migrate providers without code changes
-- Need proxy features (fallbacks, tracking) with Anthropic format
+## 📖 Learning Path
 
-## 📊 Translation Flows
+1. **Start Simple**: Run [anthropic_quickstart.py](examples/anthropic_quickstart.py)
+2. **Explore Features**: Try [anthropic_example.py](examples/anthropic_example.py)
+3. **Understand Translation**: Read [ROUTING_LOGIC.md](docs/ROUTING_LOGIC.md)
+4. **Learn Reverse Translation**: Check [reverse_translation_example.py](examples/reverse_translation_example.py)
+5. **Deploy with Proxy**: Use [complete_anthropic_proxy_example.py](examples/complete_anthropic_proxy_example.py)
+6. **Deep Dive**: Read [SUMMARY.md](docs/SUMMARY.md)
 
-### Forward Translation (OpenAI → Anthropic)
-```
-Your Code (OpenAI format)
-    ↓
-LiteLLM Library
-    ↓ Translates to Anthropic format
-Anthropic API
-    ↓ Anthropic response
-LiteLLM Library
-    ↓ Translates to OpenAI format
-Your Code (OpenAI format)
-```
-
-### Reverse Translation (Anthropic → OpenAI)
-```
-Your Code (Anthropic SDK)
-    ↓ Anthropic format
-LiteLLM Proxy
-    ↓ Translates to OpenAI format
-OpenAI API (or any provider)
-    ↓ OpenAI response
-LiteLLM Proxy
-    ↓ Translates to Anthropic format
-Your Code (Anthropic SDK)
-```
-
-## 🎯 Use Cases
-
-| Scenario | Solution | Example File |
-|----------|----------|--------------|
-| New app, multi-provider | Forward translation | `anthropic_example.py` |
-| Existing Anthropic code | Reverse translation | `reverse_translation_example.py` |
-| Migration from Anthropic | Proxy with Anthropic format | `anthropic_to_proxy_migration.py` |
-| Production deployment | Proxy with load balancing | `complete_anthropic_proxy_example.py` |
-| Quick test | Direct library usage | `anthropic_quickstart.py` |
-
-## 🔧 Supported Features
-
-| Feature | Forward (OpenAI→Anthropic) | Reverse (Anthropic→OpenAI) |
-|---------|---------------------------|---------------------------|
-| Basic Completion | ✅ | ✅ |
-| Streaming | ✅ | ✅ |
-| Async | ✅ | ✅ |
-| System Prompts | ✅ | ✅ |
-| Tool Calling | ✅ | ✅ |
-| Vision | ✅ | ✅ |
-| Prompt Caching | ✅ | ✅ |
-| Extended Thinking | ✅ | ✅ |
-| Load Balancing | ✅ | ✅ |
-| Fallbacks | ✅ | ✅ |
-
-## 📖 Available Models
-
-```python
-# Claude 3.5 Sonnet - Best balance
-"anthropic/claude-3-5-sonnet-20241022"
-
-# Claude 3.5 Haiku - Fastest & cheapest
-"anthropic/claude-3-5-haiku-20241022"
-
-# Claude 3 Opus - Most capable
-"anthropic/claude-3-opus-20240229"
-
-# Claude Sonnet 4 - Extended thinking
-"anthropic/claude-3-7-sonnet-20250219"
-```
-
-## 🎓 Learning Path
-
-1. **Start Simple**: Run `anthropic_quickstart.py`
-2. **Explore Features**: Try examples in `anthropic_example.py`
-3. **Understand Translation**: Read `anthropic_code_flow.md`
-4. **Learn Reverse Translation**: Check `reverse_translation_example.py`
-5. **Deploy with Proxy**: Use `complete_anthropic_proxy_example.py`
-6. **Deep Dive**: Read `ANTHROPIC_GUIDE.md`
-
-## 💡 Key Concepts
-
-### Bidirectional Translation
-
-LiteLLM supports translation in **both directions**:
-
-1. **Forward**: Your code uses OpenAI format → LiteLLM translates → Anthropic API
-2. **Reverse**: Your code uses Anthropic format → LiteLLM translates → Any provider
-
-This gives you maximum flexibility to:
-- Use whichever format you prefer
-- Migrate between providers easily
-- Keep existing code unchanged
-- Add proxy features without rewrites
-
-### Why Use LiteLLM?
-
-**For New Projects:**
-- Unified interface across 100+ providers
-- Easy provider switching
-- Built-in retry, fallback, load balancing
-
-**For Existing Anthropic Code:**
-- Keep your Anthropic SDK code
-- Route to different providers via proxy
-- Add cost tracking, rate limiting
-- Zero code changes (just 2 lines)
-
-## 🔗 Resources
+## 🔗 External Resources
 
 - [LiteLLM Documentation](https://docs.litellm.ai/)
 - [Anthropic Documentation](https://docs.anthropic.com/)
@@ -230,41 +160,50 @@ This gives you maximum flexibility to:
 
 ## 🆘 Need Help?
 
-1. Check the examples in this directory
-2. Read the troubleshooting section in `ANTHROPIC_GUIDE.md`
-3. Join the [LiteLLM Discord](https://discord.gg/wuPM9dRgDw)
-4. Open an issue on [GitHub](https://github.com/BerriAI/litellm/issues)
+1. Check the [docs/](docs/) directory for detailed guides
+2. Run the [examples/](examples/) to see working code
+3. Read [SUMMARY.md](docs/SUMMARY.md) for complete overview
+4. Join [LiteLLM Discord](https://discord.gg/wuPM9dRgDw)
+5. Open an issue on [GitHub](https://github.com/BerriAI/litellm/issues)
 
-## 📝 Quick Examples
+## 📝 Quick Reference
 
-### Forward Translation (OpenAI Format)
-```python
-from litellm import completion
+### Installation
+```bash
+# Library only
+pip install litellm
 
-response = completion(
-    model="anthropic/claude-3-5-sonnet-20241022",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-print(response.choices[0].message.content)
+# With proxy
+pip install 'litellm[proxy]'
+
+# With Anthropic SDK
+pip install anthropic
 ```
 
-### Reverse Translation (Anthropic Format)
-```python
-import anthropic
+### Start Proxy
+```bash
+# Basic
+litellm --model anthropic/claude-3-5-sonnet-20241022
 
-client = anthropic.Anthropic(
-    api_key="sk-proxy-key",
-    base_url="http://localhost:4000/anthropic"
-)
+# With config
+litellm --config configs/proxy_config.yaml
 
-message = client.messages.create(
-    model="gpt-4",  # Routes to OpenAI via proxy!
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-print(message.content[0].text)
+# GitHub Copilot
+litellm --config configs/github_copilot_example.yaml
+```
+
+### Test
+```bash
+# Quick start
+python examples/anthropic_quickstart.py
+
+# Comprehensive examples
+python examples/anthropic_example.py
+
+# GitHub Copilot
+python examples/test_github_copilot.py
 ```
 
 ---
 
-**Ready to get started?** Run `python anthropic_quickstart.py` or explore the examples above!
+**Ready to get started?** Pick a use case above and follow the links! 🚀
